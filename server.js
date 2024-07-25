@@ -28,6 +28,7 @@ class ServerManager {
 
     startServer() {
         this._ws_server = new WebSocket.Server({ port: 8001 });
+        this._ws_server.binaryType = 'arraybuffer';
         this._ws_server.on('connection', gameClient => {
             // this.eventBus.emit('ClientConnected');
             this.game_client.push(gameClient);
@@ -69,6 +70,7 @@ class ServerManager {
 
     createWsClient(url) {
         this._ws_client = new WebSocket(url);
+        this._ws_client.binaryType = 'arraybuffer';
         this._ws_client.on('open', () => {
             this.eventBus.emit('ServerConnected');
         });
