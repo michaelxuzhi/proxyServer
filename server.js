@@ -8,8 +8,6 @@ class ServerManager {
         this.game_client = [];
         this._ws_server = null;
         this._ws_client = null;
-
-        this.isReading = false;
     }
 
     init() {
@@ -22,8 +20,16 @@ class ServerManager {
         this.eventBus.on('ServerMsgRevcieved', this.handleServerMsg.bind(this)); // 游戏服务端发来消息，转发给游戏客户端
 
         // 断连
-        this.eventBus.on('ClientDisconnected', this.handleClientDisconnected.bind(this)); // 游戏客户端关闭
-        this.eventBus.on('ServerDisconnected', this.handleServerDisconnected.bind(this)); // 游戏服务端关闭/连不上等
+        this.eventBus.on('ClientDisconnected', this.handleDisconnected.bind(this)); // 游戏客户端关闭
+        this.eventBus.on('ServerDisconnected', this.handleDisconnected.bind(this)); // 游戏服务端关闭/连不上等
+    }
+
+    releaseEvent() {
+        this.eventBus.off('ServerConnected');
+        this.eventBus.off('ClientMsgRevcieved');
+        this.eventBus.off('ServerMsgRevcieved');
+        this.eventBus.off('ClientDisconnected');
+        this.eventBus.off('ServerDisconnected');
     }
 
     startServer() {
@@ -44,28 +50,17 @@ class ServerManager {
     }
 
     handleClientMsg() {
-        if (this.msg_queue.length == 0) {
-            return;
+        while (this.msg_queue.length > 0) {
+            if (!this._ws_client) {
+                // 特殊处理第一条消息，也就是客户端传来的真实服务器url
+                let url_msg = this.msg_queue.shift();
+                let url = JSON.parse(url_msg).url;
+                this.createWsClient(url);
+                return;
+            }
+            let temp_msg = this.msg_queue.shift();
+            this.sendToServer(temp_msg);
         }
-        // 检查锁的状态
-        if (this.isReading) {
-            return;
-        }
-        this.isReading = true; // 加锁
-
-        if (!this._ws_client) {
-            // 特殊处理第一条消息，也就是客户端传来的真实服务器url
-            let url_msg = this.msg_queue.shift();
-            let url = JSON.parse(url_msg).url;
-            this.createWsClient(url);
-            this.isReading = false;
-            return;
-        }
-        let temp_msg = this.msg_queue.shift();
-        this.sendToServer(temp_msg);
-        this.isReading = false;
-        // 递归，一直处理消息队列，直到为空
-        this.handleClientMsg();
     }
 
     createWsClient(url) {
@@ -99,32 +94,23 @@ class ServerManager {
         }
     }
 
-    handleClientDisconnected() {
-        // 游戏客户端关闭
-        if (this.game_client.length > 0) {
-            this.game_client = [];
-        }
-        this.onServerClose();
-        this.onClientClose();
+    handleDisconnected() {
+        this.clearConnections();
+        this.clearQueue();
+        this.releaseEvent();
     }
-    handleServerDisconnected() {
+    clearQueue() {
+        // 清空消息队列
+        this.msg_queue = [];
+    }
+    clearConnections() {
         if (this.game_client.length > 0) {
             this.game_client[0].close(1000);
             this.game_client = [];
         }
-        this.onClientClose();
-        this.onServerClose();
-    }
-
-    onClientClose() {
-        // 清空消息队列
-        this.msg_queue = [];
-        this.isReading = false;
-    }
-    onServerClose() {
         if (this._ws_client) {
             this._ws_client.close();
+            this._ws_client = null;
         }
-        this._ws_client = null;
     }
 }
