@@ -89,7 +89,7 @@ class ServerManager {
         }
     }
     sendToServer(msg) {
-        if (this._ws_client) {
+        if (this._ws_client || this._ws_client.readyState !== WebSocket.OPEN) {
             this._ws_client.send(msg);
         }
     }
