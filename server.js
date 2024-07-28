@@ -68,6 +68,7 @@ class ServerManager {
         this._ws_client.binaryType = 'arraybuffer';
         this._ws_client.on('open', () => {
             this.eventBus.emit('ServerConnected');
+            this.handleClientMsg();
         });
 
         this._ws_client.on('message', message => {
@@ -89,7 +90,7 @@ class ServerManager {
         }
     }
     sendToServer(msg) {
-        if (this._ws_client || this._ws_client.readyState !== WebSocket.OPEN) {
+        if (this._ws_client && this._ws_client.readyState == WebSocket.OPEN) {
             this._ws_client.send(msg);
         }
     }
