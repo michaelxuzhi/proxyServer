@@ -49,21 +49,21 @@ class ServerManager {
         });
     }
 
-    handleClientMsg() {
+    async handleClientMsg() {
         while (this.msg_queue.length > 0) {
             if (!this._ws_client) {
                 // 特殊处理第一条消息，也就是客户端传来的真实服务器url
                 let url_msg = this.msg_queue.shift();
                 let url = JSON.parse(url_msg).url;
-                this.createWsClient(url);
-                return;
+                await this.createWsClient(url);
+                continue;
             }
             let temp_msg = this.msg_queue.shift();
-            this.sendToServer(temp_msg);
+            await this.sendToServer(temp_msg);
         }
     }
 
-    createWsClient(url) {
+    async createWsClient(url) {
         this._ws_client = new WebSocket(url);
         this._ws_client.binaryType = 'arraybuffer';
         this._ws_client.on('open', () => {
@@ -89,9 +89,17 @@ class ServerManager {
             this.game_client[0].send(msg);
         }
     }
-    sendToServer(msg) {
+    async sendToServer(msg) {
         if (this._ws_client && this._ws_client.readyState == WebSocket.OPEN) {
-            this._ws_client.send(msg);
+            return new Promise(resolve, reject => {
+                this._ws_client.send(msg, err => {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve();
+                    }
+                });
+            });
         }
     }
 
